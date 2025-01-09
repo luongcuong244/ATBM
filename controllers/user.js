@@ -471,7 +471,8 @@ const getAllUsersExcludingLists = asyncHandler(async (req, res) => {
 
     // users.length > 0 && users.decryptFields();
 
-    const data = transformUsers(users.map((user) => user._doc));
+    // lọc nhung user khong co name
+    const data = transformUsers(users.map((user) => user.decryptFields())).filter((user) => user.name);
 
     res.status(200).json({
       success: true,
@@ -545,7 +546,7 @@ const getAllUsersExcludingLists = asyncHandler(async (req, res) => {
 //       });
 //     };
 
-//     const data = transformUsers(users.map((user) => user._doc));
+//     const data = transformUsers(users.map((user) => user.decryptFields()));
 
 //     res.status(200).json({
 //       success: true,
@@ -604,7 +605,7 @@ const getUsersInLikeList = asyncHandler(async (req, res) => {
       });
     };
 
-    const data = transformUsers(usersInLike.map((user) => user._doc));
+    const data = transformUsers(usersInLike.map((user) => user.decryptFields()));
 
     res.status(200).json({
       success: true,
@@ -733,7 +734,7 @@ const getUsersWhoLikedMe = asyncHandler(async (req, res) => {
       });
     };
 
-    const data = transformUsers(usersWhoLikedMe.map((user) => user._doc));
+    const data = transformUsers(usersWhoLikedMe.map((user) => user.decryptFields()));
 
     res.status(200).json({
       success: true,
@@ -961,7 +962,7 @@ const getAllUsersFilter = asyncHandler(async (req, res) => {
       });
     };
 
-    const data = transformUsers(users.map((user) => user._doc));
+    const data = transformUsers(users.map((user) => user.decryptFields()));
 
     // Trả về kết quả
     res.status(200).json({

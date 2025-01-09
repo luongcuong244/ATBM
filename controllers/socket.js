@@ -2,6 +2,7 @@ const MessageModel = require("../models/message"); // Model Message
 const RoomModel = require("../models/room");
 const UserModel = require("../models/user"); // Model Room
 const Session = require("../models/session");
+const AES = require("../encryption/AES");
 
 const handleSocketEvents = (io, socket) => {
   socket.on("getChatList", async (data) => {
@@ -13,7 +14,7 @@ const handleSocketEvents = (io, socket) => {
         path: "roomIDs",
         populate: {
           path: "userIDs",
-          select: "name _id photos", // Chỉ lấy các thông tin cần thiết
+          select: "iv name _id photos", // Chỉ lấy các thông tin cần thiết
         },
       });
 
@@ -28,7 +29,13 @@ const handleSocketEvents = (io, socket) => {
           // Lấy thông tin đối phương (ngoại trừ userId hiện tại)
           const opponents = room.userIDs.filter(
             (user) => user._id.toString() !== userId
-          );
+          ).map((user) => {
+            return {
+              _id: user._id,
+              name: AES.decrypt(user.name, user.iv),
+              photos: user.photos.map((photo) => AES.decrypt(photo, user.iv)),
+            };
+          });
 
           // Nếu không có đối phương (phòng chỉ có 1 người), bỏ qua
           if (opponents.length === 0) return null;
@@ -210,28 +217,20 @@ const handleSocketEvents = (io, socket) => {
         .sort({ createdAt: -1 }) // Sắp xếp theo thời gian tăng dần (hoặc -1 nếu muốn giảm dần)
         .populate({
           path: "sender",
-          select: "name _id photos", // Lấy thông tin người gửi
+          select: "iv name _id photos", // Lấy thông tin người gửi
         })
         .populate({
           path: "receiver",
-          select: "name _id photos", // Lấy thông tin người nhận
+          select: "iv name _id photos", // Lấy thông tin người nhận
         });
 
       const formattedMessages = messages.map((msg) => {
         const senderInfo = msg.sender
           ? {
-              _id: msg.sender._id.toString(),
-              name: msg.sender.name,
-              avatar: msg.sender.photos?.[0] || null, // Lấy ảnh đầu tiên hoặc null nếu không có
-            }
-          : null;
-
-        const receiverInfo = msg.receiver
-          ? {
-              _id: msg.receiver._id.toString(),
-              name: msg.receiver.name,
-              avatar: msg.receiver.photos?.[0] || null, // Lấy ảnh đầu tiên hoặc null nếu không có
-            }
+            _id: msg.sender._id.toString(),
+            name: AES.decrypt(msg.sender.name, msg.sender.iv),
+            avatar: msg.sender.photos?.[0] ? AES.decrypt(msg.sender.photos?.[0], msg.sender.iv) : null,
+          }
           : null;
 
         return {
@@ -321,16 +320,16 @@ const handleSocketEvents = (io, socket) => {
       const savedMessage = await newMessage.save();
       await savedMessage.populate({
         path: "sender",
-        select: "_id name photos", // Chỉ lấy các trường cần thiết
+        select: "iv _id name photos", // Chỉ lấy các trường cần thiết
       });
 
       const formattedMessage = (msg) => {
         const senderInfo = msg.sender
           ? {
-              _id: msg.sender._id.toString(),
-              name: msg.sender.name,
-              avatar: msg.sender.photos?.[0] || null, // Lấy ảnh đầu tiên hoặc null nếu không có
-            }
+            _id: msg.sender._id.toString(),
+            name: AES.decrypt(msg.sender.name, msg.sender.iv),
+            avatar: msg.sender.photos?.[0] ? AES.decrypt(msg.sender.photos?.[0], msg.sender.iv) : null,
+          }
           : null;
 
         return {
