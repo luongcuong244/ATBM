@@ -553,6 +553,29 @@ const handleSocketEvents = (io, socket) => {
     await sendLoginNotificationToAllDevices(userId, newDeviceName);
   });
 
+  // socket.on("sendRSAPublicKeyAndDeviceId", async (data) => {
+  //   const { userId, deviceId, rsaPublicKey } = data;
+  //   try {
+  //     // Tìm tất cả các session của userId
+  //     const sessions = await Session.find({ userId });
+
+  //     // Nếu có session cũ, gửi thông báo tới tất cả các socketId đã đăng nhập
+  //     sessions.forEach((session) => {
+  //       // Tìm socketId của mỗi session cũ
+
+  //       if (session.socketId && session.deviceId !== newDeviceName) {
+  //         // Gửi thông báo tới client có socketId
+  //         io.to(session.socketId).emit("receiveRSAPublicKeyAndDeviceId", {
+  //           rsaPublicKey,
+  //           deviceId,
+  //         });
+  //       }
+  //     });
+  //   } catch (error) {
+  //     console.error("Error while sending login notification:", error);
+  //   }
+  // });
+
   socket.on("disconnect", async () => {
     try {
       // Cập nhật socketId thành null khi client mất kết nối
