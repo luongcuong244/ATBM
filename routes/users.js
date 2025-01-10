@@ -20,6 +20,7 @@ const {
   blockUser,
   unblockUser,
   uploadImages,
+  sendRsaDeviceInfo,
 } = require("../controllers/user");
 const { verifyAccessToken } = require("../middlewares/verifyToken");
 const uploadImage = require("../config/cloudinary.config");
@@ -61,4 +62,5 @@ router.post(
   uploadImage.array("images", 6),
   uploadImages
 );
+router.post("/send-rsa-device-info", verifyAccessToken, sendRsaDeviceInfo);
 module.exports = router;

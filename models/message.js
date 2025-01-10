@@ -7,11 +7,23 @@ const messageSchema = new mongoose.Schema(
     system: { type: Boolean, default: false },
     room: { type: mongoose.Types.ObjectId, ref: "Room" },
     revoked: { type: Boolean, default: false },
-    text: { type: String },
-    senderPublicKeyEncryptedText: { type: String },
-    receiverPublicKeyEncryptedText: { type: String },
-    senderDeviceId: { type: String },
-    receiverDeviceId: { type: String },
+    text: { type: String, default: null },
+    senderPublicKeyEncryptedText: [
+      {
+        userId: { type: String, required: true },
+        publicKey: { type: String, required: true },
+        deviceId: { type: String, required: true },
+        encryptedText: { type: String, required: true },
+      },
+    ],
+    receiverPublicKeyEncryptedText: [
+      {
+        userId: { type: String, required: true },
+        publicKey: { type: String, required: true },
+        deviceId: { type: String, required: true },
+        encryptedText: { type: String, required: true },
+      },
+    ],
     image: { type: String },
     video: { type: String },
     file: { type: String },

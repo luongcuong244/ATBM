@@ -2,6 +2,7 @@ const userModel = require("../models/user");
 const RoomModel = require("../models/room");
 const MessageModel = require("../models/message");
 const Session = require("../models/session");
+const RsaDeviceInfo = require("../models/rsa_device_info");
 const mongoose = require("mongoose");
 const { getDistanceFromLatLonInKm } = require("../ultils/haversine");
 
@@ -1146,6 +1147,50 @@ const uploadImages = asyncHandler(async (req, res) => {
   }
 });
 
+const sendRsaDeviceInfo = asyncHandler(async (req, res) => {
+  const { _id } = req.user; // ID của người dùng hiện tại
+
+  const { rsaPublicKey, deviceId } = req.body; // Lấy thông tin RSA public key và device ID từ body request
+
+  if (!rsaPublicKey || !deviceId) {
+    return res.status(400).json({
+      success: false,
+      mes: "RSA public key and device ID are required",
+    });
+  }
+
+  // kiểm tra xem đã có người dùng với thông tin device ID này chưa
+  const existingRsaDeviceInfo = await RsaDeviceInfo.findOne({
+    userId: _id,
+    deviceId: deviceId,
+  });
+
+  if (existingRsaDeviceInfo) {
+    console.log("RSA public key đã tồn tại");
+    // Nếu đã tồn tại, cập nhật RSA public key mới
+    existingRsaDeviceInfo.publicKey = rsaPublicKey;
+    await existingRsaDeviceInfo.save();
+    return res.status(200).json({
+      success: true,
+      mes: "RSA public key sent successfully!",
+    });
+  }
+
+  // Nếu chưa tồn tại, tạo mới thông tin RSA public key
+  const newRsaDeviceInfo = new RsaDeviceInfo({
+    userId: _id,
+    publicKey: rsaPublicKey,
+    deviceId: deviceId,
+  });
+
+  await newRsaDeviceInfo.save();
+
+  res.status(200).json({
+    success: true,
+    mes: "RSA public key sent successfully!",
+  });
+});
+
 module.exports = {
   removeFromListLike,
   getUserInfo,
@@ -1168,4 +1213,5 @@ module.exports = {
   blockUser,
   unblockUser,
   uploadImages,
+  sendRsaDeviceInfo,
 };

@@ -2,7 +2,9 @@ const MessageModel = require("../models/message"); // Model Message
 const RoomModel = require("../models/room");
 const UserModel = require("../models/user"); // Model Room
 const Session = require("../models/session");
+const RsaDeviceInfo = require("../models/rsa_device_info");
 const AES = require("../encryption/AES");
+const { text } = require("express");
 
 const handleSocketEvents = (io, socket) => {
   socket.on("getChatList", async (data) => {
@@ -53,7 +55,15 @@ const handleSocketEvents = (io, socket) => {
 
           if (latestMessage) {
             // Kiểm tra nếu tồn tại image, video hoặc file
-            let text = latestMessage.text;
+            var text = [
+              ...latestMessage.senderPublicKeyEncryptedText,
+              ...latestMessage.receiverPublicKeyEncryptedText,
+            ];
+
+            if (latestMessage.system) {
+              text = latestMessage.text;
+            }
+
             if (
               latestMessage.image ||
               latestMessage.video ||
@@ -97,80 +107,6 @@ const handleSocketEvents = (io, socket) => {
       socket.emit("getChatList", { error: "Đã xảy ra lỗi, vui lòng thử lại." });
     }
   });
-
-  // socket.on("getAllMessages", async (data) => {
-  //   const { userId, guestId } = data;
-
-  //   try {
-  //     // Tìm phòng chat có chứa cả hai userId và guestId
-  //     const room = await RoomModel.findOne({
-  //       userIDs: { $all: [userId, guestId] }, // Kiểm tra cả hai userId đều có trong phòng
-  //     });
-
-  //     if (!room) {
-  //       return socket.emit("getAllMessages", {
-  //         status: "error",
-  //         message: "Không tìm thấy phòng chat giữa hai người.",
-  //       });
-  //     }
-
-  //     // Lấy tất cả tin nhắn của phòng chat và sắp xếp theo thời gian
-  //     const messages = await MessageModel.find({ room: room._id })
-  //       .sort({ createdAt: -1 }) // Sắp xếp theo thời gian tăng dần (hoặc -1 nếu muốn giảm dần)
-  //       .populate({
-  //         path: "sender",
-  //         select: "name _id photos", // Lấy thông tin người gửi
-  //       })
-  //       .populate({
-  //         path: "receiver",
-  //         select: "name _id photos", // Lấy thông tin người nhận
-  //       });
-
-  //     const formattedMessages = messages.map((msg) => {
-  //       const senderInfo = msg.sender
-  //         ? {
-  //             _id: msg.sender._id.toString(),
-  //             name: msg.sender.name,
-  //             avatar: msg.sender.photos?.[0] || null, // Lấy ảnh đầu tiên hoặc null nếu không có
-  //           }
-  //         : null;
-
-  //       const receiverInfo = msg.receiver
-  //         ? {
-  //             _id: msg.receiver._id.toString(),
-  //             name: msg.receiver.name,
-  //             avatar: msg.receiver.photos?.[0] || null, // Lấy ảnh đầu tiên hoặc null nếu không có
-  //           }
-  //         : null;
-
-  //       return {
-  //         _id: msg._id,
-  //         createdAt: msg.createdAt,
-  //         pending: false,
-  //         received: true,
-  //         sent: false,
-  //         text: msg.text,
-  //         revoked: msg.revoked,
-  //         user: senderInfo,
-  //         // guest:
-  //         //   receiverInfo && receiverInfo._id === userId ? receiverInfo : null,
-  //         system: msg.system,
-  //         image: msg.image,
-  //         video: msg.video,
-  //         file: msg.file,
-  //       };
-  //     });
-
-  //     // Trả về danh sách tin nhắn và thông tin phòng chat
-  //     socket.emit("getAllMessages", formattedMessages);
-  //   } catch (error) {
-  //     console.error("Lỗi khi lấy danh sách tin nhắn:", error);
-  //     socket.emit("getAllMessages", {
-  //       status: "error",
-  //       message: "Đã xảy ra lỗi khi lấy danh sách tin nhắn.",
-  //     });
-  //   }
-  // });
 
   socket.on("getAllMessages", async (data) => {
     const { userId, guestId } = data;
@@ -240,6 +176,10 @@ const handleSocketEvents = (io, socket) => {
           received: true,
           sent: false,
           text: msg.text,
+          rsaDeviceInfos: [
+            ...msg.senderPublicKeyEncryptedText,
+            ...msg.receiverPublicKeyEncryptedText,
+          ],
           revoked: msg.revoked,
           user: senderInfo,
           system: msg.system,
@@ -266,7 +206,7 @@ const handleSocketEvents = (io, socket) => {
   });
 
   socket.on("send_message", async (data) => {
-    const { guestId, message } = data;
+    const { guestId, message, senderPublicKeyEncryptedText, receiverPublicKeyEncryptedText } = data;
 
     if (!message.user || !guestId) {
       console.log("Thiếu thông tin cần thiết: sender, receiver hoặc room.");
@@ -309,7 +249,8 @@ const handleSocketEvents = (io, socket) => {
         sender: message.user._id,
         receiver: guestId,
         room: room._id,
-        text: message.text,
+        senderPublicKeyEncryptedText,
+        receiverPublicKeyEncryptedText,
         image: message.image,
         video: message.video,
         file: message.file,
@@ -339,6 +280,10 @@ const handleSocketEvents = (io, socket) => {
           received: true,
           sent: false,
           text: msg.text,
+          rsaDeviceInfos: [
+            ...msg.senderPublicKeyEncryptedText,
+            ...msg.receiverPublicKeyEncryptedText,
+          ],
           revoked: msg.revoked,
           // guest: senderInfo,
           user: senderInfo,
@@ -350,12 +295,6 @@ const handleSocketEvents = (io, socket) => {
       };
 
       const data = formattedMessage(savedMessage);
-
-      // Lấy toàn bộ tin nhắn của room chat
-      // const messages = await Message.find({ room: room })
-      //   .sort({ createdAt: 1 }) // Sắp xếp theo thời gian tăng dần
-      //   .populate("sender", "name") // Lấy thông tin của sender
-      //   .populate("receiver", "name"); // Lấy thông tin của receiver
 
       // // Gửi tin nhắn đến tất cả user trong phòng chat
       io.emit("newMessage", data);
@@ -553,6 +492,19 @@ const handleSocketEvents = (io, socket) => {
     await sendLoginNotificationToAllDevices(userId, newDeviceName);
   });
 
+  socket.on("getAllRsaDeviceInfos", async (data) => {
+    try {
+      const { userId, guestId } = data;
+      const userRsaDeviceInfos = await RsaDeviceInfo.find({ userId });
+      const guestRsaDeviceInfos = await RsaDeviceInfo.find({ userId: guestId });
+      socket.emit("receiveAllRsaDeviceInfos", {
+        userRsaDeviceInfos,
+        guestRsaDeviceInfos,
+      });
+    } catch (error) {
+      console.error("Error while getting all RSA device infos:", error);
+    }
+  });
   // socket.on("sendRSAPublicKeyAndDeviceId", async (data) => {
   //   const { userId, deviceId, rsaPublicKey } = data;
   //   try {
