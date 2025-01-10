@@ -5,19 +5,13 @@ const RoomModel = require("./../models/room");
 
 const addMessage = asyncHandler(async (req, res) => {
   try {
-    const { sender, receiver, room, text, image, video, file, system } =
+    const { sender, receiver, room, text, image, video, file, system, senderPublicKeyEncryptedText, receiverPublicKeyEncryptedText } =
       req.body; // Dữ liệu từ client gửi lên
 
     // Kiểm tra các trường bắt buộc
     if (!sender || !receiver || !room) {
       return res.status(400).json({
         mes: "Thiếu thông tin cần thiết: sender, receiver hoặc room.",
-      });
-    }
-    // Kiểm tra nếu tất cả các trường `text`, `image`, `video`, `file` đều rỗng
-    if (!text && !image && !video && !file) {
-      return res.status(400).json({
-        mes: "Phải cung cấp ít nhất một nội dung: text, image, video hoặc file.",
       });
     }
 
@@ -43,6 +37,8 @@ const addMessage = asyncHandler(async (req, res) => {
       receiver,
       room,
       text,
+      senderPublicKeyEncryptedText,
+      receiverPublicKeyEncryptedText,
       image,
       video,
       file,
